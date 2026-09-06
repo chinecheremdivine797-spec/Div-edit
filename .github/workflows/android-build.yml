@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -34,9 +34,23 @@ jobs:
           DIV_EDIT_FFMPEG_BASE_URL: ''
         run: gradle --no-daemon test assembleDebug
 
-      - name: Upload debug APK
+      - name: Prepare APK for download
+        run: cp app/build/outputs/apk/debug/*.apk app/build/outputs/apk/debug/DivEditAI.apk
+
+      - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: div-edit-ai-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/DivEditAI.apk
           if-no-files-found: error
+
+      - name: Publish GitHub release with APK
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v0.1.${{ github.run_number }}"
+          gh release create "$TAG" app/build/outputs/apk/debug/DivEditAI.apk \
+            --title "DIV EDIT AI $TAG" \
+            --notes "DIV EDIT AI Android APK. Built automatically from main." \
+            --latest
