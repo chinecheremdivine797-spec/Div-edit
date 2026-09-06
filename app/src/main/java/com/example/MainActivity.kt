@@ -45,6 +45,7 @@ fun DivEditAiApp(
   viewModel: FilmStudioViewModel
 ) {
   val coroutineScope = rememberCoroutineScope()
+  var showAdvancedProductionSuite by remember { mutableStateOf(false) }
 
   val screen by viewModel.screen.collectAsState()
   val activeSheet by viewModel.activeSheet.collectAsState()
@@ -57,7 +58,6 @@ fun DivEditAiApp(
   val aiMessages by viewModel.aiMessages.collectAsState()
   val exportState by viewModel.exportState.collectAsState()
   val systemStatus by viewModel.systemStatusText.collectAsState()
-
   val currentUser by viewModel.currentUser.collectAsState()
   val myFilms by viewModel.myFilms.collectAsState()
   val drafts by viewModel.drafts.collectAsState()
@@ -65,17 +65,12 @@ fun DivEditAiApp(
   val selectedMediaForPreview by viewModel.selectedMediaForPreview.collectAsState()
   val selectedMediaForRename by viewModel.selectedMediaForRename.collectAsState()
   val selectedClipForReplace by viewModel.selectedClipForReplace.collectAsState()
-
   val selectedClip = viewModel.getSelectedClip()
-
   val snackbarHostState = remember { SnackbarHostState() }
 
   LaunchedEffect(systemStatus) {
     if (systemStatus.isNotBlank() && !systemStatus.contains("Ready")) {
-      snackbarHostState.showSnackbar(
-        message = systemStatus,
-        duration = SnackbarDuration.Short
-      )
+      snackbarHostState.showSnackbar(systemStatus, duration = SnackbarDuration.Short)
     }
   }
 
@@ -84,75 +79,59 @@ fun DivEditAiApp(
     contentWindowInsets = WindowInsets.systemBars,
     snackbarHost = {
       SnackbarHost(hostState = snackbarHostState) { data ->
-        Snackbar(
-          snackbarData = data,
-          containerColor = CinemaSlate900,
-          contentColor = GoldCinema,
-          shape = MaterialTheme.shapes.small
-        )
+        Snackbar(snackbarData = data, containerColor = CinemaSlate900, contentColor = GoldCinema, shape = MaterialTheme.shapes.small)
       }
     }
   ) { innerPadding ->
-    Box(
-      modifier = Modifier
-        .fillMaxSize()
-        .padding(innerPadding)
-    ) {
+    Box(Modifier.fillMaxSize().padding(innerPadding)) {
       when (screen) {
-        StudioScreen.DASHBOARD -> {
-          MainDashboardScreen(
-            currentUser = currentUser,
-            recentProjects = recentProjects,
-            onSelectProject = { proj -> viewModel.selectProject(proj) },
-            onOpenEditor = { viewModel.setScreen(StudioScreen.EDITOR) },
-            onOpenSheet = { sheet -> viewModel.openSheet(sheet) },
-            onOpenAccountMenu = { viewModel.openAccountMenu() },
-            onSignInWithGoogle = {
-              coroutineScope.launch {
-                viewModel.signInWithGoogle(activity)
-              }
-            }
-          )
-        }
-        StudioScreen.EDITOR -> {
-          FilmEditorScreen(
-            viewModel = viewModel,
-            onBackToDashboard = { viewModel.setScreen(StudioScreen.DASHBOARD) }
-          )
-        }
+        StudioScreen.DASHBOARD -> MainDashboardScreen(
+          currentUser = currentUser,
+          recentProjects = recentProjects,
+          onSelectProject = { viewModel.selectProject(it) },
+          onOpenEditor = { viewModel.setScreen(StudioScreen.EDITOR) },
+          onOpenSheet = { viewModel.openSheet(it) },
+          onOpenAccountMenu = { viewModel.openAccountMenu() },
+          onSignInWithGoogle = { coroutineScope.launch { viewModel.signInWithGoogle(activity) } }
+        )
+        StudioScreen.EDITOR -> FilmEditorScreen(
+          viewModel = viewModel,
+          onBackToDashboard = { viewModel.setScreen(StudioScreen.DASHBOARD) }
+        )
       }
 
-      // Dialogs & Sheets based on activeSheet state
+      // Global professional tools launcher: available from both Dashboard and Editor.
+      FilledTonalButton(
+        onClick = { showAdvancedProductionSuite = true },
+        modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(10.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+      ) {
+        Text("PRO TOOLS", fontSize = 9.sp)
+      }
+
       when (activeSheet) {
-        ActiveStudioSheet.HOLLYWOOD_MAGIC -> {
-          HollywoodMagicDialog(
-            processState = magicProcessState,
-            onSelectMagic = { magic -> viewModel.startHollywoodMagicProcess(magic) },
-            onApplyToTimeline = { viewModel.applyMagicToTimeline() },
-            onDismiss = { viewModel.closeSheet() }
-          )
-        }
-        ActiveStudioSheet.FILM_TRICKS -> {
-          FilmTricksSheet(
-            presets = filmTricks,
-            onApplyTrick = { trick -> viewModel.applyFilmTrick(trick) },
-            onToggleFavorite = { id -> viewModel.toggleFilmTrickFavorite(id) },
-            onSaveCustomTrick = { custom -> viewModel.addCustomFilmTrick(custom) },
-            onDismiss = { viewModel.closeSheet() }
-          )
-        }
-        ActiveStudioSheet.AI_VFX_DIRECTOR -> {
-          AiVfxDirectorSheet(
-            messages = aiMessages,
-            onSendPrompt = { prompt -> viewModel.sendAiDirectorPrompt(prompt) },
-            onDismiss = { viewModel.closeSheet() }
-          )
-        }
+        ActiveStudioSheet.HOLLYWOOD_MAGIC -> HollywoodMagicDialog(
+          processState = magicProcessState,
+          onSelectMagic = { viewModel.startHollywoodMagicProcess(it) },
+          onApplyToTimeline = { viewModel.applyMagicToTimeline() },
+          onDismiss = { viewModel.closeSheet() }
+        )
+        ActiveStudioSheet.FILM_TRICKS -> FilmTricksSheet(
+          presets = filmTricks,
+          onApplyTrick = { viewModel.applyFilmTrick(it) },
+          onToggleFavorite = { viewModel.toggleFilmTrickFavorite(it) },
+          onSaveCustomTrick = { viewModel.addCustomFilmTrick(it) },
+          onDismiss = { viewModel.closeSheet() }
+        )
+        ActiveStudioSheet.AI_VFX_DIRECTOR -> AiVfxDirectorSheet(
+          messages = aiMessages,
+          onSendPrompt = { viewModel.sendAiDirectorPrompt(it) },
+          onDismiss = { viewModel.closeSheet() }
+        )
         ActiveStudioSheet.AI_TOOLS_STUDIO -> {
           val selectedAiTool by viewModel.selectedAiTool.collectAsState()
           val executionState by viewModel.aiToolExecutionState.collectAsState()
           val paramValues by viewModel.aiToolParamValues.collectAsState()
-
           AiToolsStudioSheet(
             tools = viewModel.aiTools,
             selectedTool = selectedAiTool,
@@ -165,15 +144,13 @@ fun DivEditAiApp(
             onDismiss = { viewModel.closeSheet() }
           )
         }
-        ActiveStudioSheet.WATERMARK_LOGO -> {
-          WatermarkLogoSheet(
-            watermarkConfig = watermarkConfig,
-            logoSequenceConfig = logoSeqConfig,
-            onUpdateWatermark = { viewModel.updateWatermark(it) },
-            onUpdateLogoSequence = { viewModel.updateLogoSequence(it) },
-            onDismiss = { viewModel.closeSheet() }
-          )
-        }
+        ActiveStudioSheet.WATERMARK_LOGO -> WatermarkLogoSheet(
+          watermarkConfig = watermarkConfig,
+          logoSequenceConfig = logoSeqConfig,
+          onUpdateWatermark = { viewModel.updateWatermark(it) },
+          onUpdateLogoSequence = { viewModel.updateLogoSequence(it) },
+          onDismiss = { viewModel.closeSheet() }
+        )
         ActiveStudioSheet.COLOR_STUDIO -> {
           selectedClip?.let { clip ->
             ColorStudioSheet(
@@ -191,95 +168,69 @@ fun DivEditAiApp(
           AudioStudioSheet(
             tracks = viewModel.currentProject.value.tracks,
             foleyAssets = foleyAssets,
-            onAddFoley = { asset -> viewModel.importMediaAsset(asset) },
+            onAddFoley = { viewModel.importMediaAsset(it) },
             onDismiss = { viewModel.closeSheet() }
           )
         }
-        ActiveStudioSheet.ANIMATION_BUILDER -> {
-          AnimationBuilderSheet(
-            onDismiss = { viewModel.closeSheet() }
-          )
-        }
-        ActiveStudioSheet.EXPORT_STUDIO -> {
-          ExportDialog(
-            exportState = exportState,
-            defaultBurnIn = watermarkConfig.isBurnIn,
-            onStartExport = { codec, res, br, burnIn ->
-              viewModel.startExportMaster(codec, res, br, burnIn)
-            },
-            onDismiss = { viewModel.closeSheet() }
-          )
-        }
-        ActiveStudioSheet.NEW_FILM_DIALOG -> {
-          NewFilmDialog(
-            onCreateFilm = { title, dir, aspect, fps, cs ->
-              viewModel.createNewProject(title, dir, aspect, fps, cs)
-            },
-            onDismiss = { viewModel.closeSheet() }
-          )
-        }
-        ActiveStudioSheet.MEDIA_IMPORT_DIALOG -> {
-          MediaImportDialog(
-            mediaAssets = mediaAssets,
-            clipToReplace = selectedClipForReplace,
-            onImportAssetToTimeline = { asset -> viewModel.importMediaAsset(asset) },
-            onExecuteReplaceClip = { asset -> viewModel.replaceSelectedClipWithMedia(asset) },
-            onPreviewAsset = { asset -> viewModel.openMediaPreview(asset) },
-            onRenameAsset = { asset -> viewModel.openRenameDialog(asset) },
-            onDeleteAsset = { assetId -> viewModel.deleteMediaAsset(assetId) },
-            onImportFromDeviceFile = { name, type, ext, size, uri, cat ->
-              viewModel.importFromDevice(name, type, ext, size, uri, cat)
-            },
-            onDismiss = { viewModel.closeSheet() }
-          )
-        }
-        ActiveStudioSheet.MEDIA_PREVIEW_DIALOG -> {
-          MediaPreviewDialog(
-            asset = selectedMediaForPreview,
-            onDismiss = { viewModel.closeSheet() },
-            onAddToTimeline = { asset -> viewModel.importMediaAsset(asset) },
-            onOpenRename = { asset -> viewModel.openRenameDialog(asset) },
-            onDeleteAsset = { assetId -> viewModel.deleteMediaAsset(assetId) }
-          )
-        }
-        ActiveStudioSheet.RENAME_MEDIA_DIALOG -> {
-          RenameMediaDialog(
-            asset = selectedMediaForRename,
-            onDismiss = { viewModel.closeSheet() },
-            onConfirmRename = { id, newName -> viewModel.renameMediaAsset(id, newName) }
-          )
-        }
-        ActiveStudioSheet.ACCOUNT_PROFILE_DIALOG -> {
-          AccountMenuDialog(
-            currentUser = currentUser,
-            myFilmsCount = myFilms.size,
-            draftsCount = drafts.size,
-            exportedCount = exportedProjects.size,
-            onDismiss = { viewModel.closeSheet() },
-            onSignInWithGoogle = {
-              coroutineScope.launch {
-                viewModel.signInWithGoogle(activity)
-              }
-            },
-            onSignOut = { viewModel.signOut() },
-            onNavigateToMyFilms = { viewModel.openSheet(ActiveStudioSheet.MY_FILMS_DIALOG) },
-            onNavigateToRecentProjects = { viewModel.openSheet(ActiveStudioSheet.MY_FILMS_DIALOG) }
-          )
-        }
-        ActiveStudioSheet.MY_FILMS_DIALOG -> {
-          MyFilmsDialog(
-            currentUser = currentUser,
-            myFilms = myFilms,
-            drafts = drafts,
-            exportedProjects = exportedProjects,
-            onDismiss = { viewModel.closeSheet() },
-            onSelectProject = { project -> viewModel.selectProject(project) },
-            onNewFilm = { viewModel.openSheet(ActiveStudioSheet.NEW_FILM_DIALOG) }
-          )
-        }
-        ActiveStudioSheet.NONE -> {
-          // No modal active
-        }
+        ActiveStudioSheet.ANIMATION_BUILDER -> AnimationBuilderSheet(onDismiss = { viewModel.closeSheet() })
+        ActiveStudioSheet.EXPORT_STUDIO -> ExportDialog(
+          exportState = exportState,
+          defaultBurnIn = watermarkConfig.isBurnIn,
+          onStartExport = { codec, res, br, burnIn -> viewModel.startExportMaster(codec, res, br, burnIn) },
+          onDismiss = { viewModel.closeSheet() }
+        )
+        ActiveStudioSheet.NEW_FILM_DIALOG -> NewFilmDialog(
+          onCreateFilm = { title, dir, aspect, fps, cs -> viewModel.createNewProject(title, dir, aspect, fps, cs) },
+          onDismiss = { viewModel.closeSheet() }
+        )
+        ActiveStudioSheet.MEDIA_IMPORT_DIALOG -> MediaImportDialog(
+          mediaAssets = mediaAssets,
+          clipToReplace = selectedClipForReplace,
+          onImportAssetToTimeline = { viewModel.importMediaAsset(it) },
+          onExecuteReplaceClip = { viewModel.replaceSelectedClipWithMedia(it) },
+          onPreviewAsset = { viewModel.openMediaPreview(it) },
+          onRenameAsset = { viewModel.openRenameDialog(it) },
+          onDeleteAsset = { viewModel.deleteMediaAsset(it) },
+          onImportFromDeviceFile = { name, type, ext, size, uri, cat -> viewModel.importFromDevice(name, type, ext, size, uri, cat) },
+          onDismiss = { viewModel.closeSheet() }
+        )
+        ActiveStudioSheet.MEDIA_PREVIEW_DIALOG -> MediaPreviewDialog(
+          asset = selectedMediaForPreview,
+          onDismiss = { viewModel.closeSheet() },
+          onAddToTimeline = { viewModel.importMediaAsset(it) },
+          onOpenRename = { viewModel.openRenameDialog(it) },
+          onDeleteAsset = { viewModel.deleteMediaAsset(it) }
+        )
+        ActiveStudioSheet.RENAME_MEDIA_DIALOG -> RenameMediaDialog(
+          asset = selectedMediaForRename,
+          onDismiss = { viewModel.closeSheet() },
+          onConfirmRename = { id, newName -> viewModel.renameMediaAsset(id, newName) }
+        )
+        ActiveStudioSheet.ACCOUNT_PROFILE_DIALOG -> AccountMenuDialog(
+          currentUser = currentUser,
+          myFilmsCount = myFilms.size,
+          draftsCount = drafts.size,
+          exportedCount = exportedProjects.size,
+          onDismiss = { viewModel.closeSheet() },
+          onSignInWithGoogle = { coroutineScope.launch { viewModel.signInWithGoogle(activity) } },
+          onSignOut = { viewModel.signOut() },
+          onNavigateToMyFilms = { viewModel.openSheet(ActiveStudioSheet.MY_FILMS_DIALOG) },
+          onNavigateToRecentProjects = { viewModel.openSheet(ActiveStudioSheet.MY_FILMS_DIALOG) }
+        )
+        ActiveStudioSheet.MY_FILMS_DIALOG -> MyFilmsDialog(
+          currentUser = currentUser,
+          myFilms = myFilms,
+          drafts = drafts,
+          exportedProjects = exportedProjects,
+          onDismiss = { viewModel.closeSheet() },
+          onSelectProject = { viewModel.selectProject(it) },
+          onNewFilm = { viewModel.openSheet(ActiveStudioSheet.NEW_FILM_DIALOG) }
+        )
+        ActiveStudioSheet.NONE -> Unit
+      }
+
+      if (showAdvancedProductionSuite) {
+        AdvancedProductionToolsSheet(onDismiss = { showAdvancedProductionSuite = false })
       }
     }
   }
