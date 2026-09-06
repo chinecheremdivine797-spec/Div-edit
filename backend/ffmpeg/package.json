@@ -1,0 +1,13 @@
+{
+  "name": "div-edit-ffmpeg-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@fastify/multipart": "^9.2.1",
+    "fastify": "^5.5.0"
+  }
+}
