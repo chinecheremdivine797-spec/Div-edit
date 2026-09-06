@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.engine.TimelineExportCoordinator
 import com.example.model.AssetType
 import com.example.model.FilmProject
 import com.example.ui.components.*
@@ -46,6 +47,8 @@ fun DivEditAiApp(
 ) {
   val coroutineScope = rememberCoroutineScope()
   var showAdvancedProductionSuite by remember { mutableStateOf(false) }
+  var exportUiState by remember { mutableStateOf(ExportStudioState()) }
+  var exportJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
   val screen by viewModel.screen.collectAsState()
   val activeSheet by viewModel.activeSheet.collectAsState()
@@ -65,7 +68,7 @@ fun DivEditAiApp(
   val selectedMediaForPreview by viewModel.selectedMediaForPreview.collectAsState()
   val selectedMediaForRename by viewModel.selectedMediaForRename.collectAsState()
   val selectedClipForReplace by viewModel.selectedClipForReplace.collectAsState()
-  val selectedClip = viewModel.getSelectedClip()
+  val currentProject by viewModel.currentProject.collectAsState()
   val snackbarHostState = remember { SnackbarHostState() }
 
   LaunchedEffect(systemStatus) {
@@ -100,7 +103,6 @@ fun DivEditAiApp(
         )
       }
 
-      // Global professional tools launcher: available from both Dashboard and Editor.
       FilledTonalButton(
         onClick = { showAdvancedProductionSuite = true },
         modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(10.dp),
@@ -152,7 +154,7 @@ fun DivEditAiApp(
           onDismiss = { viewModel.closeSheet() }
         )
         ActiveStudioSheet.COLOR_STUDIO -> {
-          selectedClip?.let { clip ->
+          viewModel.getSelectedClip()?.let { clip ->
             ColorStudioSheet(
               currentColorGrade = clip.colorGrade,
               onUpdateColorGrade = { viewModel.updateSelectedClipColorGrade(it) },
@@ -173,11 +175,56 @@ fun DivEditAiApp(
           )
         }
         ActiveStudioSheet.ANIMATION_BUILDER -> AnimationBuilderSheet(onDismiss = { viewModel.closeSheet() })
-        ActiveStudioSheet.EXPORT_STUDIO -> ExportDialog(
-          exportState = exportState,
-          defaultBurnIn = watermarkConfig.isBurnIn,
-          onStartExport = { codec, res, br, burnIn -> viewModel.startExportMaster(codec, res, br, burnIn) },
-          onDismiss = { viewModel.closeSheet() }
+        ActiveStudioSheet.EXPORT_STUDIO -> ExportStudioSheet(
+          state = exportUiState,
+          onResolutionChange = { exportUiState = exportUiState.copy(resolution = it) },
+          onFpsChange = { exportUiState = exportUiState.copy(fps = it) },
+          onQualityChange = { exportUiState = exportUiState.copy(quality = it) },
+          onExport = {
+            exportJob?.cancel()
+            exportUiState = exportUiState.copy(running = true, progress = 0, message = "Preparing timeline render…")
+            val coordinator = TimelineExportCoordinator(activity, BuildConfig.DIV_EDIT_FFMPEG_BASE_URL)
+            exportJob = coroutineScope.launch {
+              val result = coordinator.export(
+                TimelineExportCoordinator.Request(
+                  project = currentProject,
+                  assets = mediaAssets,
+                  resolution = exportUiState.resolution,
+                  fps = exportUiState.fps,
+                  quality = exportUiState.quality
+                )
+              )
+              exportUiState = if (result.success) {
+                ExportStudioState(
+                  resolution = exportUiState.resolution,
+                  fps = exportUiState.fps,
+                  quality = exportUiState.quality,
+                  progress = 100,
+                  running = false,
+                  message = result.message
+                )
+              } else {
+                exportUiState.copy(running = false, progress = 0, message = "Export failed: ${result.message}")
+              }
+              result.output?.let { output ->
+                viewModel.showStatus("Real MP4 created: ${output.name}")
+              } ?: viewModel.showStatus(result.message)
+              exportJob = null
+            }
+          },
+          onCancel = {
+            exportJob?.cancel()
+            exportJob = null
+            exportUiState = exportUiState.copy(running = false, progress = 0, message = "Export cancelled")
+          },
+          onRetry = {
+            exportUiState = exportUiState.copy(running = false, progress = 0, message = "Ready to export")
+          },
+          onDismiss = {
+            exportJob?.cancel()
+            exportJob = null
+            viewModel.closeSheet()
+          }
         )
         ActiveStudioSheet.NEW_FILM_DIALOG -> NewFilmDialog(
           onCreateFilm = { title, dir, aspect, fps, cs -> viewModel.createNewProject(title, dir, aspect, fps, cs) },
