@@ -1,11 +1,11 @@
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { readFile, rm, writeFile, mkdtemp } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 
 const app = Fastify({ logger: true, bodyLimit: 2 * 1024 * 1024 * 1024 });
@@ -48,13 +48,12 @@ app.post('/v1/render-timeline', async (request, reply) => {
       const duration = item.trimOut > 0 ? Math.max(0.01, item.trimOut - item.trimIn) : null;
       const args = ['-y', '-ss', String(item.trimIn), '-i', item.file];
       if (duration !== null) args.push('-t', String(duration));
-      const vf = item.speed === 1 ? [] : [`setpts=${1 / item.speed}*PTS`];
-      const af = item.speed === 1 ? [] : [`atempo=${clampAtempo(item.speed)}`];
-      if (vf.length || af.length) {
-        if (vf.length) args.push('-vf', vf.join(','));
-        if (af.length) args.push('-af', af.join(','));
-      }
-      args.push('-af', `volume=${item.volume}`, '-c:v', 'libx264', '-preset', 'medium', '-crf', qualityCrf(manifest.quality), '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', out);
+      if (item.speed !== 1) args.push('-vf', `setpts=${1 / item.speed}*PTS`);
+      const audioFilters = [];
+      if (item.speed !== 1) audioFilters.push(...atempoChain(item.speed));
+      if (item.volume !== 1) audioFilters.push(`volume=${item.volume}`);
+      if (audioFilters.length) args.push('-af', audioFilters.join(','));
+      args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', qualityCrf(manifest.quality), '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', out);
       await runFfmpeg(args);
       segmentPaths.push(out);
     }
@@ -62,9 +61,15 @@ app.post('/v1/render-timeline', async (request, reply) => {
     const concat = join(work, 'concat.txt');
     await writeFile(concat, segmentPaths.map(p => `file '${p.replaceAll("'", "'\\''")}'`).join('\n'));
     const output = join(work, `export_${randomUUID()}.mp4`);
-    const [width, height] = [Number(manifest.width || 1920), Number(manifest.height || 1080)];
+    const width = Number(manifest.width || 1920);
+    const height = Number(manifest.height || 1080);
     const fps = Number(manifest.fps || 30);
-    await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', concat, '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`, '-r', String(fps), '-c:v', 'libx264', '-preset', 'medium', '-crf', qualityCrf(manifest.quality), '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', output]);
+    await runFfmpeg([
+      '-y', '-f', 'concat', '-safe', '0', '-i', concat,
+      '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`,
+      '-r', String(fps), '-c:v', 'libx264', '-preset', 'medium', '-crf', qualityCrf(manifest.quality),
+      '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', output
+    ]);
 
     const buffer = await readFile(output);
     reply.type('video/mp4').send(buffer);
@@ -81,7 +86,14 @@ function extension(name = '') {
   return ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v'].includes(ext) ? ext : 'bin';
 }
 function qualityCrf(q) { return q === 'Maximum' ? '16' : q === 'Standard' ? '23' : '18'; }
-function clampAtempo(speed) { return Math.max(0.5, Math.min(2, speed)); }
+function atempoChain(speed) {
+  const filters = [];
+  let remaining = speed;
+  while (remaining > 2) { filters.push('atempo=2'); remaining /= 2; }
+  while (remaining < 0.5) { filters.push('atempo=0.5'); remaining /= 0.5; }
+  if (Math.abs(remaining - 1) > 0.0001) filters.push(`atempo=${remaining}`);
+  return filters;
+}
 function runFfmpeg(args) {
   return new Promise((resolve, reject) => {
     const child = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -102,5 +114,4 @@ function ffmpegVersion() {
 }
 
 const port = Number(process.env.PORT || 8080);
-await mkdir(tmpdir(), { recursive: true });
 await app.listen({ host: '0.0.0.0', port });
