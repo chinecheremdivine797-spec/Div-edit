@@ -1,7 +1,7 @@
 package com.example.engine
 
-import com.example.model.AssetType
 import com.example.model.FilmProject
+import com.example.model.MediaAsset
 import com.example.model.TimelineTrack
 import com.example.model.TrackType
 
@@ -11,12 +11,13 @@ import com.example.model.TrackType
  * validation can report them instead of silently skipping clips.
  */
 object TimelineRenderPlanFactory {
-    fun fromProject(project: FilmProject): TimelineRenderPlan {
-        val assetsById = project.tracks
-            .flatMap { it.clips }
-            .associateBy { it.assetId }
+    fun fromProject(
+        project: FilmProject,
+        mediaAssets: List<MediaAsset>
+    ): TimelineRenderPlan {
+        val assetsById = mediaAssets.associateBy { it.id }
 
-        val tracks = project.tracks.map { track ->
+        val renderTracks = project.tracks.map { track ->
             RenderTrack(
                 id = track.id,
                 kind = trackKind(track),
@@ -35,31 +36,17 @@ object TimelineRenderPlanFactory {
         }
 
         return TimelineRenderPlan(
-            projectId = project.id,
-            durationMs = project.durationMs,
-            fps = project.fps.fps,
-            tracks = tracks
+            videoTracks = renderTracks.filter { it.kind == TrackKind.VIDEO },
+            audioTracks = renderTracks.filter { it.kind == TrackKind.AUDIO },
+            overlays = renderTracks.filter { it.kind != TrackKind.VIDEO && it.kind != TrackKind.AUDIO }
         )
     }
 
     private fun trackKind(track: TimelineTrack): TrackKind = when (track.type) {
         TrackType.VIDEO_V1, TrackType.VIDEO_V2 -> TrackKind.VIDEO
         TrackType.AUDIO_A1, TrackType.AUDIO_A2, TrackType.SFX_A3 -> TrackKind.AUDIO
-        TrackType.VFX -> TrackKind.VFX
+        TrackType.VFX -> TrackKind.OVERLAY
         TrackType.TITLES -> TrackKind.TEXT
         TrackType.OVERLAY -> TrackKind.OVERLAY
-    }
-
-    fun supportedSource(assetType: AssetType): Boolean = when (assetType) {
-        AssetType.LIVE_ACTION,
-        AssetType.ANIMATION,
-        AssetType.RENDERED_SCENE,
-        AssetType.IMAGE_SEQUENCE,
-        AssetType.STILL_IMAGE,
-        AssetType.AUDIO_SCORE,
-        AssetType.VOICE_OVER,
-        AssetType.FOLEY_SFX,
-        AssetType.VFX_ASSET -> true
-        AssetType.LOGO -> true
     }
 }
