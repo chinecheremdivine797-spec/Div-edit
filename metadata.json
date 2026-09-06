@@ -1,0 +1,7 @@
+{
+  "name": "DIV EDIT AI",
+  "description": "Turn Footage Into Cinema. Professional AI-powered film editing, Hollywood Magic, cinematic VFX, Film Tricks, multi-track timeline, and animation post-production studio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
