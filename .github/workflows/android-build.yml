@@ -29,28 +29,55 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
+      - name: Create CI debug keystore
+        shell: bash
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          test -f debug.keystore
+
       - name: Build debug APK and run unit tests
         env:
           DIV_EDIT_FFMPEG_BASE_URL: ''
         run: gradle --no-daemon test assembleDebug
 
       - name: Prepare APK for download
-        run: cp app/build/outputs/apk/debug/*.apk app/build/outputs/apk/debug/DivEditAI.apk
+        shell: bash
+        run: |
+          APK_SOURCE=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          test -n "$APK_SOURCE"
+          cp "$APK_SOURCE" app/build/outputs/apk/debug/DivEditAI.apk
+          sha256sum app/build/outputs/apk/debug/DivEditAI.apk > app/build/outputs/apk/debug/DivEditAI.apk.sha256
+          test -s app/build/outputs/apk/debug/DivEditAI.apk
+          test -s app/build/outputs/apk/debug/DivEditAI.apk.sha256
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: div-edit-ai-debug-apk
-          path: app/build/outputs/apk/debug/DivEditAI.apk
+          path: |
+            app/build/outputs/apk/debug/DivEditAI.apk
+            app/build/outputs/apk/debug/DivEditAI.apk.sha256
           if-no-files-found: error
 
-      - name: Publish GitHub release with APK
+      - name: Publish GitHub release with APK and checksum
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v0.1.${{ github.run_number }}"
-          gh release create "$TAG" app/build/outputs/apk/debug/DivEditAI.apk \
+          gh release create "$TAG" \
+            app/build/outputs/apk/debug/DivEditAI.apk \
+            app/build/outputs/apk/debug/DivEditAI.apk.sha256 \
             --title "DIV EDIT AI $TAG" \
-            --notes "DIV EDIT AI Android APK. Built automatically from main." \
+            --notes "DIV EDIT AI Android APK. Built and tested automatically from main. SHA-256 checksum is provided for download verification." \
             --latest
