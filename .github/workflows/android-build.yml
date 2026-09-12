@@ -32,9 +32,8 @@ jobs:
       - name: Create CI debug keystore
         shell: bash
         run: |
-          mkdir -p "$HOME/.android"
           keytool -genkeypair -v \
-            -keystore "$HOME/.android/debug.keystore" \
+            -keystore "${GITHUB_WORKSPACE}/debug.keystore" \
             -storepass android \
             -alias androiddebugkey \
             -keypass android \
@@ -42,6 +41,7 @@ jobs:
             -keysize 2048 \
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
+          test -s "${GITHUB_WORKSPACE}/debug.keystore"
 
       - name: Verify BuildConfig source before build
         shell: bash
