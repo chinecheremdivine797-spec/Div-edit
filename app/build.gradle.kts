@@ -17,9 +17,8 @@ android {
     applicationId = "com.aistudio.diveditai.kflmpo"
     minSdk = 24
     targetSdk = 36
-    val ffmpegUrl = System.getenv("DIV_EDIT_FFMPEG_BASE_URL")?.trim().orEmpty()
-    val ffmpegUrlLiteral = "\"${ffmpegUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\""
-    buildConfigField("String", "DIV_EDIT_FFMPEG_BASE_URL", ffmpegUrlLiteral)
+    // Keep the final free build self-contained. Remote FFmpeg can be configured later.
+    buildConfigField("String", "DIV_EDIT_FFMPEG_BASE_URL", "\"\"")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
