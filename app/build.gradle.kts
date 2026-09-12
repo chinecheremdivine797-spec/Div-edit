@@ -17,7 +17,6 @@ android {
     applicationId = "com.aistudio.diveditai.kflmpo"
     minSdk = 24
     targetSdk = 36
-    // Keep the final free build self-contained. Remote FFmpeg can be configured later.
     buildConfigField("String", "DIV_EDIT_FFMPEG_BASE_URL", "\"\"")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
