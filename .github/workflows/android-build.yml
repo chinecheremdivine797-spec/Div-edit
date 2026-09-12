@@ -45,10 +45,23 @@ jobs:
           fi
           test -f debug.keystore
 
+      - name: Verify BuildConfig source before build
+        shell: bash
+        run: |
+          grep -n 'DIV_EDIT_FFMPEG_BASE_URL' app/build.gradle.kts
+          test "$(grep -c 'buildConfigField(\"String\", \"DIV_EDIT_FFMPEG_BASE_URL\", \"\\\"\\\"\")' app/build.gradle.kts)" -eq 1
+
       - name: Build debug APK and run unit tests
         env:
           DIV_EDIT_FFMPEG_BASE_URL: ''
-        run: gradle --no-daemon --no-build-cache test assembleDebug
+        run: gradle --no-daemon --no-build-cache clean test assembleDebug
+
+      - name: Verify generated BuildConfig
+        shell: bash
+        run: |
+          BUILD_CONFIG=$(find app/build/generated/source/buildConfig/debug -type f -name BuildConfig.java | head -n 1)
+          test -n "$BUILD_CONFIG"
+          grep -F 'public static final String DIV_EDIT_FFMPEG_BASE_URL = "";' "$BUILD_CONFIG"
 
       - name: Prepare APK for download
         shell: bash
@@ -79,5 +92,5 @@ jobs:
             app/build/outputs/apk/debug/DivEditAI.apk \
             app/build/outputs/apk/debug/DivEditAI.apk.sha256 \
             --title "DIV EDIT AI $TAG" \
-            --notes "DIV EDIT AI Android APK. Built and tested automatically from main. SHA-256 checksum is provided for download verification." \
+            --notes "DIV EDIT AI Android APK. Built and verified automatically from main. SHA-256 checksum is provided for download verification." \
             --latest
