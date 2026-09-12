@@ -2,9 +2,9 @@ name: DIV EDIT AI Android Build
 
 on:
   push:
-    branches: [main]
+    branches: ["main"]
   pull_request:
-    branches: [main]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -22,7 +22,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -32,18 +31,16 @@ jobs:
       - name: Create CI debug keystore
         shell: bash
         run: |
-          if [ ! -f debug.keystore ]; then
-            keytool -genkeypair -v \
-              -keystore debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
-          test -f debug.keystore
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Verify BuildConfig source before build
         shell: bash
@@ -52,9 +49,10 @@ jobs:
           test "$(grep -c 'buildConfigField(\"String\", \"DIV_EDIT_FFMPEG_BASE_URL\", \"\\\"\\\"\")' app/build.gradle.kts)" -eq 1
 
       - name: Build debug APK and run unit tests
-        env:
-          DIV_EDIT_FFMPEG_BASE_URL: ''
-        run: gradle --no-daemon --no-build-cache clean test assembleDebug
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --no-build-cache clean test assembleDebug
 
       - name: Verify generated BuildConfig
         shell: bash
@@ -66,31 +64,27 @@ jobs:
       - name: Prepare APK for download
         shell: bash
         run: |
-          APK_SOURCE=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
-          test -n "$APK_SOURCE"
-          cp "$APK_SOURCE" app/build/outputs/apk/debug/DivEditAI.apk
-          sha256sum app/build/outputs/apk/debug/DivEditAI.apk > app/build/outputs/apk/debug/DivEditAI.apk.sha256
-          test -s app/build/outputs/apk/debug/DivEditAI.apk
-          test -s app/build/outputs/apk/debug/DivEditAI.apk.sha256
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk DivEditAI.apk
+          sha256sum DivEditAI.apk | tee DivEditAI.apk.sha256
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: div-edit-ai-debug-apk
           path: |
-            app/build/outputs/apk/debug/DivEditAI.apk
-            app/build/outputs/apk/debug/DivEditAI.apk.sha256
+            DivEditAI.apk
+            DivEditAI.apk.sha256
           if-no-files-found: error
 
       - name: Publish GitHub release with APK and checksum
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="v0.1.${{ github.run_number }}"
-          gh release create "$TAG" \
-            app/build/outputs/apk/debug/DivEditAI.apk \
-            app/build/outputs/apk/debug/DivEditAI.apk.sha256 \
-            --title "DIV EDIT AI $TAG" \
-            --notes "DIV EDIT AI Android APK. Built and verified automatically from main. SHA-256 checksum is provided for download verification." \
-            --latest
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: DIV EDIT AI v0.1.${{ github.run_number }}
+          body: |
+            DIV EDIT AI Android APK — built and verified automatically from main.
+          files: |
+            DivEditAI.apk
+            DivEditAI.apk.sha256
