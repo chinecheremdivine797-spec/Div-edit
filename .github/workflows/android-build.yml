@@ -48,7 +48,7 @@ jobs:
       - name: Build debug APK and run unit tests
         env:
           DIV_EDIT_FFMPEG_BASE_URL: ''
-        run: gradle --no-daemon test assembleDebug
+        run: gradle --no-daemon --no-build-cache test assembleDebug
 
       - name: Prepare APK for download
         shell: bash
@@ -81,5 +81,3 @@ jobs:
             --title "DIV EDIT AI $TAG" \
             --notes "DIV EDIT AI Android APK. Built and tested automatically from main. SHA-256 checksum is provided for download verification." \
             --latest
-
-# Trigger a fresh verified APK build.
