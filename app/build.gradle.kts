@@ -20,7 +20,7 @@ android {
     versionCode = 1
     versionName = "1.0"
     val ffmpegUrl = System.getenv("DIV_EDIT_FFMPEG_BASE_URL") ?: ""
-    buildConfigField("String", "DIV_EDIT_FFMPEG_BASE_URL", "\"${ffmpegUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+    buildConfigField("String", "DIV_EDIT_FFMPEG_BASE_URL", "\"$ffmpegUrl\"")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -113,7 +113,7 @@ dependencies {
   testImplementation(libs.roborazzi.junit.rule)
   androidTestImplementation(platform(libs.androidx.compose.bom))
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-  androidTestImplementation(libs.androidx.espresso.core)
+  androidTestImplementation(libs.android.espresso.core)
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.runner)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
