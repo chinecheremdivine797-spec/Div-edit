@@ -17,7 +17,7 @@ android {
     applicationId = "com.aistudio.diveditai.kflmpo"
     minSdk = 24
     targetSdk = 36
-    val ffmpegUrl = System.getenv("DIV_EDIT_FFMPEG_BASE_URL") ?: ""
+    val ffmpegUrl = System.getenv("DIV_EDIT_FFMPEG_BASE_URL")?.trim().takeUnless { it.isNullOrEmpty() } ?: "https://example.invalid"
     buildConfigField("String", "DIV_EDIT_FFMPEG_BASE_URL", "\"$ffmpegUrl\"")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
