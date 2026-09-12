@@ -18,10 +18,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -51,8 +52,7 @@ jobs:
       - name: Build debug APK and run unit tests
         shell: bash
         run: |
-          chmod +x ./gradlew
-          ./gradlew --no-daemon --no-build-cache clean test assembleDebug
+          gradle --no-daemon --no-build-cache clean test assembleDebug
 
       - name: Verify generated BuildConfig
         shell: bash
@@ -64,9 +64,12 @@ jobs:
       - name: Prepare APK for download
         shell: bash
         run: |
-          test -f app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk DivEditAI.apk
+          APK_SOURCE=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          test -n "$APK_SOURCE"
+          cp "$APK_SOURCE" DivEditAI.apk
           sha256sum DivEditAI.apk | tee DivEditAI.apk.sha256
+          test -s DivEditAI.apk
+          test -s DivEditAI.apk.sha256
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
@@ -79,12 +82,13 @@ jobs:
 
       - name: Publish GitHub release with APK and checksum
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v0.1.${{ github.run_number }}
-          name: DIV EDIT AI v0.1.${{ github.run_number }}
-          body: |
-            DIV EDIT AI Android APK — built and verified automatically from main.
-          files: |
-            DivEditAI.apk
-            DivEditAI.apk.sha256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v0.1.${{ github.run_number }}"
+          gh release create "$TAG" \
+            DivEditAI.apk \
+            DivEditAI.apk.sha256 \
+            --title "DIV EDIT AI $TAG" \
+            --notes "DIV EDIT AI Android APK. Built and verified automatically from main. SHA-256 checksum is provided for download verification." \
+            --latest
