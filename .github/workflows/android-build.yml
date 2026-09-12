@@ -81,3 +81,5 @@ jobs:
             --title "DIV EDIT AI $TAG" \
             --notes "DIV EDIT AI Android APK. Built and tested automatically from main. SHA-256 checksum is provided for download verification." \
             --latest
+
+# Trigger a fresh verified APK build.
