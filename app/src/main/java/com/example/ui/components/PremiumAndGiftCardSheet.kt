@@ -4,13 +4,11 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -26,7 +24,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import coil.compose.AsyncImage
 
 @Composable
 fun PremiumAndGiftCardSheet(
@@ -48,11 +45,11 @@ fun PremiumAndGiftCardSheet(
                     Text("Full DIV Edit AI tools and professional export")
                     Spacer(Modifier.height(14.dp))
                     Text("₦5,000 / month", style = MaterialTheme.typography.headlineMedium)
-                    Text("Cancel anytime. Premium access should be granted only after verified payment.")
+                    Text("Premium access is granted only after verified payment.")
                     Spacer(Modifier.height(16.dp))
                     Button(
                         onClick = {
-                            paymentMessage = "Paystack checkout is ready for connection. Your Paystack public key and secure server checkout endpoint must be configured before real charges are enabled."
+                            paymentMessage = "Paystack checkout needs the secure payment endpoint and public key configured before real charges are enabled."
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("Subscribe — ₦5,000/month") }
@@ -71,11 +68,8 @@ fun PremiumAndGiftCardSheet(
                     Spacer(Modifier.height(10.dp))
 
                     giftCardUri?.let { uri ->
-                        AsyncImage(
-                            model = uri,
-                            contentDescription = "Gift card preview",
-                            modifier = Modifier.fillMaxWidth().height(180.dp)
-                        )
+                        Text("Selected image:", style = MaterialTheme.typography.labelLarge)
+                        Text(uri.toString(), style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(8.dp))
                     }
 
@@ -98,7 +92,7 @@ fun PremiumAndGiftCardSheet(
 
                     Spacer(Modifier.height(18.dp))
                     Text(
-                        "Gift-card uploads are only a submission area. Do not upload PINs or codes unless DIV explicitly requests them through a secure verification process.",
+                        "Gift-card uploads are a submission area. Do not upload PINs or codes unless DIV explicitly requests them through a secure verification process.",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(Modifier.height(20.dp))
