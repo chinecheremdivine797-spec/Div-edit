@@ -63,7 +63,14 @@ class FilmStudioViewModelTest {
     }
 
     @Test fun testWatermarkConfiguration() {
-        viewModel.updateWatermark(WatermarkConfig(true, true, textContent = "CONFIDENTIAL FESTIVAL CUT"))
+        viewModel.updateWatermark(
+            WatermarkConfig(
+                isEnabled = true,
+                type = WatermarkType.BRAND_TEXT,
+                textContent = "CONFIDENTIAL FESTIVAL CUT",
+                isBurnIn = true
+            )
+        )
         assertTrue(viewModel.watermarkConfig.value.isEnabled)
         assertTrue(viewModel.watermarkConfig.value.isBurnIn)
         assertEquals("CONFIDENTIAL FESTIVAL CUT", viewModel.watermarkConfig.value.textContent)
