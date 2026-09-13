@@ -1,5 +1,7 @@
 package com.example
 
+import android.app.Application
+import androidx.test.core.app.ApplicationProvider
 import com.example.model.*
 import com.example.viewmodel.ActiveStudioSheet
 import com.example.viewmodel.FilmStudioViewModel
@@ -19,7 +21,8 @@ class FilmStudioViewModelTest {
 
     @Before
     fun setup() {
-        viewModel = FilmStudioViewModel()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        viewModel = FilmStudioViewModel(application)
     }
 
     @Test
@@ -120,7 +123,7 @@ class FilmStudioViewModelTest {
 
     @Test
     fun testTimecodeFormatting() {
-        val formatted = viewModel.formatTimecode(3661000L) // 1 hr, 1 min, 1 sec
+        val formatted = viewModel.formatTimecode(3661000L)
         assertTrue(formatted.startsWith("01:01:01"))
     }
 }
