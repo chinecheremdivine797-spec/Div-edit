@@ -47,6 +47,7 @@ fun DivEditAiApp(
 ) {
   val coroutineScope = rememberCoroutineScope()
   var showAdvancedProductionSuite by remember { mutableStateOf(false) }
+  var showPremiumSheet by remember { mutableStateOf(false) }
   var exportUiState by remember { mutableStateOf(ExportStudioState()) }
   var exportJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
@@ -103,12 +104,18 @@ fun DivEditAiApp(
         )
       }
 
-      FilledTonalButton(
-        onClick = { showAdvancedProductionSuite = true },
+      Row(
         modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(10.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
       ) {
-        Text("PRO TOOLS", fontSize = 9.sp)
+        FilledTonalButton(
+          onClick = { showPremiumSheet = true },
+          contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+        ) { Text("₦5,000 PRO", fontSize = 9.sp) }
+        FilledTonalButton(
+          onClick = { showAdvancedProductionSuite = true },
+          contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+        ) { Text("PRO TOOLS", fontSize = 9.sp) }
       }
 
       when (activeSheet) {
@@ -278,6 +285,9 @@ fun DivEditAiApp(
 
       if (showAdvancedProductionSuite) {
         AdvancedProductionToolsSheet(onDismiss = { showAdvancedProductionSuite = false })
+      }
+      if (showPremiumSheet) {
+        PremiumAndGiftCardSheet(onDismiss = { showPremiumSheet = false })
       }
     }
   }
