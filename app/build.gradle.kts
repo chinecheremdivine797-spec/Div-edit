@@ -17,7 +17,9 @@ android {
     applicationId = "com.aistudio.diveditai.kflmpo"
     minSdk = 24
     targetSdk = 36
-    buildConfigField("String", "DIV_EDIT_FFMPEG_BASE_URL", "\"\"")
+    // Use a non-empty Java literal so generated BuildConfig.java is always valid.
+    // TimelineExportCoordinator still treats this as unconfigured because it is not HTTPS.
+    buildConfigField("String", "DIV_EDIT_FFMPEG_BASE_URL", "\"disabled\"")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
