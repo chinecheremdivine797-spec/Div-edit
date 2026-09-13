@@ -29,7 +29,7 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Create CI debug keystore
+      - name: Create CI signing keystore
         shell: bash
         run: |
           keytool -genkeypair -v \
@@ -40,42 +40,42 @@ jobs:
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+            -dname "CN=DIV EDIT AI,O=DivStudio,C=NG"
           test -s "${GITHUB_WORKSPACE}/debug.keystore"
 
-      - name: Build debug APK and run unit tests
+      - name: Run unit tests and build release APK
         shell: bash
         run: |
-          gradle --no-daemon --no-build-cache clean test assembleDebug
+          gradle --no-daemon --no-build-cache clean test assembleRelease
 
-      - name: Prepare APK for download
+      - name: Prepare release APK
         shell: bash
         run: |
-          APK_SOURCE=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          APK_SOURCE=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
           test -n "$APK_SOURCE"
-          cp "$APK_SOURCE" DivEditAI.apk
-          sha256sum DivEditAI.apk | tee DivEditAI.apk.sha256
-          test -s DivEditAI.apk
-          test -s DivEditAI.apk.sha256
+          cp "$APK_SOURCE" DivEditAI-release.apk
+          sha256sum DivEditAI-release.apk | tee DivEditAI-release.apk.sha256
+          test -s DivEditAI-release.apk
+          test -s DivEditAI-release.apk.sha256
 
-      - name: Upload debug APK artifact
+      - name: Upload release APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: div-edit-ai-debug-apk
+          name: div-edit-ai-release-apk
           path: |
-            DivEditAI.apk
-            DivEditAI.apk.sha256
+            DivEditAI-release.apk
+            DivEditAI-release.apk.sha256
           if-no-files-found: error
 
-      - name: Publish GitHub release with APK and checksum
+      - name: Publish GitHub release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v0.1.${{ github.run_number }}"
           gh release create "$TAG" \
-            DivEditAI.apk \
-            DivEditAI.apk.sha256 \
+            DivEditAI-release.apk \
+            DivEditAI-release.apk.sha256 \
             --title "DIV EDIT AI $TAG" \
-            --notes "DIV EDIT AI Android APK. Built and verified automatically from main. SHA-256 checksum is provided for download verification." \
+            --notes "DIV EDIT AI release APK. Built after unit-test verification. SHA-256 checksum is included." \
             --latest
