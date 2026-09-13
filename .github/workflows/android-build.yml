@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           grep -n 'DIV_EDIT_FFMPEG_BASE_URL' app/build.gradle.kts
-          test "$(grep -c 'buildConfigField(\"String\", \"DIV_EDIT_FFMPEG_BASE_URL\", \"\\\"\\\"\")' app/build.gradle.kts)" -eq 1
+          test "$(grep -c 'buildConfigField(\"String\", \"DIV_EDIT_FFMPEG_BASE_URL\", \"\\\"disabled\\\"\")' app/build.gradle.kts)" -eq 1
 
       - name: Build debug APK and run unit tests
         shell: bash
@@ -59,7 +59,7 @@ jobs:
         run: |
           BUILD_CONFIG=$(find app/build/generated/source/buildConfig/debug -type f -name BuildConfig.java | head -n 1)
           test -n "$BUILD_CONFIG"
-          grep -F 'public static final String DIV_EDIT_FFMPEG_BASE_URL = "";' "$BUILD_CONFIG"
+          grep -F 'public static final String DIV_EDIT_FFMPEG_BASE_URL = "disabled";' "$BUILD_CONFIG"
 
       - name: Prepare APK for download
         shell: bash
