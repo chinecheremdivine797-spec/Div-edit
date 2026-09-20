@@ -1,0 +1,16 @@
+appId: ng.divstudio.divedit
+productName: DIV EDIT
+directories:
+  output: release
+files:
+  - dist/**
+  - electron/**
+win:
+  target:
+    - nsis
+    - portable
+  artifactName: DIV-EDIT-PC-${version}-${arch}.${ext}
+mac:
+  target: dmg
+linux:
+  target: AppImage
