@@ -10,33 +10,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-
+          node-version: 22
       - name: Install dependencies
         run: npm install
-
       - name: Build web editor
         run: npm run build
-
       - name: Add Android platform
         run: npx cap add android
-
       - name: Sync Capacitor
         run: npx cap sync android
-
       - name: Build installable APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
