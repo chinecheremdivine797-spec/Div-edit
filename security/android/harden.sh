@@ -43,9 +43,24 @@ if "externalNativeBuild" not in s:
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro", "proguard-rules-security.pro"
         }
     }''', 1)
-# Explicitly keep debug resource shrinking disabled.
-if "android.buildTypes.debug.shrinkResources = false" not in s:
-    s += '''\n\n// DIV EDIT security build: resource shrinking requires code shrinking.\nandroid.buildTypes.debug.shrinkResources = false\nandroid.buildTypes.debug.minifyEnabled = false\n'''
+# Force a safe generated configuration for the APK build.
+# Resource shrinking is disabled because the workflow builds the debug APK.
+s += '''
+
+/* DIV EDIT security build overrides */
+android {
+    buildTypes {
+        debug {
+            minifyEnabled false
+            shrinkResources false
+        }
+        release {
+            minifyEnabled true
+            shrinkResources false
+        }
+    }
+}
+'''
 p.write_text(s)
 PY
 
