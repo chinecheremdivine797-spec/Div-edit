@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState}from"react";
-import { exportVideoClip } from "./mediaEngine";
+import { exportVideoClip, renderProject } from "./mediaEngine";
 import{createRoot}from"react-dom/client";
 import{Play,Pause,Square,Upload,Undo2,Redo2,Scissors,Trash2,Sparkles,Layers,Download,Maximize,Plus,Eye,Lock,Music,Type,Sticker,SlidersHorizontal,Film,AudioLines,Blend,KeyRound,ScanLine,Move3d,RotateCcw,Save,Settings,Check,Search,Mic,Camera,Grid3X3,Cloud,Users,History,Tag,Zap,Volume2,Palette,Smile,Clapperboard,ShieldCheck}from"lucide-react";
 import"./styles.css";
@@ -49,16 +49,29 @@ function App(){
  function redo(){if(!future.length)return;setHistory(h=>[...h,p]);setP(future[0]);setFuture(f=>f.slice(1))}
  function save(){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(p,null,2)],{type:"application/json"}));a.download="div-edit-project.json";a.click();setNotice("Project saved")}
  function exportVideo(){
-  const videoLayer=sel?.kind==="video"?sel:p.layers.find(l=>l.kind==="video"&&l.src);
-  if(!videoLayer?.src){setNotice("Select or import a video clip first");return}
   const formats:any={"720p":[720,1280],"1080p":[1080,1920],"1440p":[1440,2560],"4K":[2160,3840]};
   const [w,h]=formats[p.settings.quality]||formats["1080p"];
-  setNotice("Loading media engine…");
-  exportVideoClip({src:videoLayer.src,duration:videoLayer.duration,speed:videoLayer.speed||1,reverse:videoLayer.effect==="Reverse",freeze:videoLayer.effect==="Freeze",fps:p.fps,width:w,height:h,bitrate:p.settings.bitrate,onProgress:v=>setNotice("Rendering "+Math.round(v*100)+"%")})
-   .then(blob=>{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="DIV-EDIT-export.mp4";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000);setNotice("MP4 export finished")})
-   .catch(err=>{console.error(err);setNotice("MP4 export failed — check the source video and try again")});
- }
- function setRatio(v:string){const d:any={"9:16":[1080,1920],"16:9":[1920,1080],"1:1":[1080,1080],"4:5":[1080,1350]};if(d[v])commit({...p,width:d[v][0],height:d[v][1]});else{const w=Number(prompt("Custom width",String(p.width)));const h=Number(prompt("Custom height",String(p.height)));if(w>0&&h>0)commit({...p,width:w,height:h})}}
+  setNotice("Preparing multi-track render…");
+  renderProject({
+    layers:p.layers,duration:p.duration,fps:p.fps,width:w,height:h,bitrate:p.settings.bitrate,
+    drawLayer:(g,l,time,m)=>{
+      const scale=Math.min(w/p.width,h/p.height);
+      g.save(); g.translate((w-p.width*scale)/2,(h-p.height*scale)/2); g.scale(scale,scale);
+      g.globalAlpha=l.opacity??1;
+      g.globalCompositeOperation=l.blend==="Add"?"lighter":l.blend==="Screen"?"screen":l.blend==="Multiply"?"multiply":l.blend==="Darken"?"darken":"source-over";
+      g.translate(l.x,l.y); g.rotate((l.rotation||0)*Math.PI/180); g.scale(l.scale||1,l.scale||1);
+      if(l.kind==="text"){g.fillStyle=l.color||"#fff";g.font="900 86px Arial";g.textAlign="center";g.shadowBlur=16;g.shadowColor=l.color||"#fff";g.fillText(l.name,0,0)}
+      else if(l.kind==="vfx")paintVfx(g,l.effect||"Fire",time,l.color);
+      else if(m instanceof HTMLVideoElement && m.readyState>=2) g.drawImage(m,-p.width/2,-p.height/2,p.width,p.height);
+      else if(m instanceof HTMLImageElement) g.drawImage(m,-p.width/2,-p.height/2,p.width,p.height);
+      else if(l.kind==="shape"){g.fillStyle=l.color||"#fff";g.fillRect(-p.width/4,-p.height/4,p.width/2,p.height/2)}
+      if(l.mask?.type!=="none"){g.restore();g.save();g.globalCompositeOperation="destination-in";g.beginPath();if(l.mask.type==="circle")g.arc(w/2,h/2,Math.min(w,h)*.35,0,Math.PI*2);else g.rect(w*.1,h*.1,w*.8,h*.8);g.fill();g.restore();return}
+      g.restore();
+    },
+    onProgress:v=>setNotice("Rendering "+Math.round(v*100)+"%")
+  }).then(blob=>{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="DIV-EDIT-project.mp4";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000);setNotice("Project MP4 export finished")})
+    .catch(err=>{console.error(err);setNotice("Project render failed — try again with a shorter timeline")});
+ } function setRatio(v:string){const d:any={"9:16":[1080,1920],"16:9":[1920,1080],"1:1":[1080,1080],"4:5":[1080,1350]};if(d[v])commit({...p,width:d[v][0],height:d[v][1]});else{const w=Number(prompt("Custom width",String(p.width)));const h=Number(prompt("Custom height",String(p.height)));if(w>0&&h>0)commit({...p,width:w,height:h})}}
  function runFeature(num:number,name:string){setFeature(num);const low=name.toLowerCase();if(low.includes("split"))split();else if(low==="reverse"){if(sel&&sel.kind==="video")commit({...p,layers:p.layers.map(l=>l.id===sel.id?{...l,effect:l.effect==="Reverse"?undefined:"Reverse"}:l)});setNotice("Reverse processing enabled")}else if(low.includes("freeze")){if(sel&&sel.kind==="video")commit({...p,layers:p.layers.map(l=>l.id===sel.id?{...l,effect:"Freeze"}:l)});setNotice("Freeze-frame processing enabled")}else if(low.includes("duplicate")&&sel){const n={...sel,id:uid(),start:Math.min(p.duration,sel.start+sel.duration)};commit({...p,layers:[...p.layers,n],duration:Math.max(p.duration,n.start+n.duration)});setSelected(n.id)}else if(low.includes("delete")&&sel){commit({...p,layers:p.layers.filter(l=>l.id!==sel.id)});setSelected(null)}else if(low.includes("new project")){setP(fresh());setSelected(null)}else if(low.includes("add text"))add("text","DIV EDIT TEXT");else if(low.includes("vfx")||vfx.some(v=>low===v.toLowerCase()))add("vfx",name,undefined,name);else if(low.includes("ratio"))setRatio("9:16");else if(low.includes("marker"))setMarkers(m=>[...m,t]);else if(low.includes("beat")){setMarkers(Array.from({length:Math.max(1,Math.floor(p.duration/2))},(_,i)=>(i+1)*2).filter(x=>x<p.duration));setNotice("Beat markers generated locally")}else if(low.includes("speed")){if(sel)commit({...p,layers:p.layers.map(l=>l.id===sel.id?{...l,speed:Math.min(100,Math.max(.1,l.speed===1?2:l.speed*2)),effect:"Speed Curve"}:l)});setNotice("Speed curve updated") }else if(low.includes("grid"))commit({...p,settings:{...p.settings,grid:!p.settings.grid}});else if(low.includes("safe"))commit({...p,settings:{...p.settings,safe:!p.settings.safe}});else setNotice(name+" panel opened — local editor control ready")}
  const visibleFeatures=features.filter(f=>!search||f[2].toLowerCase().includes(search.toLowerCase())||f[0].toLowerCase().includes(search.toLowerCase()));
  const currentModule=tab==="All"?null:tab;
