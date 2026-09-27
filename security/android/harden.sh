@@ -2,9 +2,9 @@
 set -euo pipefail
 APP="android/app/src/main"
 mkdir -p "$APP/java/ng/divstudio/divcut/security" "$APP/cpp" "$APP/res/xml"
-cp security/android/SecurityGuard.kt "$APP/java/ng/divstudio/divcut/security/SecurityGuard.kt"
-cp security/android/IntegrityClient.kt "$APP/java/ng/divstudio/divcut/security/IntegrityClient.kt"
-cp security/android/KeystoreStore.kt "$APP/java/ng/divstudio/divcut/security/KeystoreStore.kt"
+cp security/android/SecurityGuard.java "$APP/java/ng/divstudio/divcut/security/SecurityGuard.java"
+cp security/android/IntegrityClient.java "$APP/java/ng/divstudio/divcut/security/IntegrityClient.java"
+cp security/android/KeystoreStore.java "$APP/java/ng/divstudio/divcut/security/KeystoreStore.java"
 cp security/android/native/divsecurity.cpp "$APP/cpp/divsecurity.cpp"
 cp security/android/native/CMakeLists.txt "$APP/cpp/CMakeLists.txt"
 cp security/android/proguard-rules.pro android/app/proguard-rules-security.pro
