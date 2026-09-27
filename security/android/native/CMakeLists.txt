@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(divsecurity)
+add_library(divsecurity SHARED divsecurity.cpp)
+target_compile_options(divsecurity PRIVATE -fvisibility=hidden -fstack-protector-strong -D_FORTIFY_SOURCE=2)
+target_link_options(divsecurity PRIVATE -Wl,--strip-all -Wl,--exclude-libs,ALL)
