@@ -1,4 +1,4 @@
-name: Build DIV EDIT 100-Feature APK
+name: DIV EDIT Play Store Release v1.0
 
 on:
   workflow_dispatch:
@@ -30,18 +30,63 @@ jobs:
         run: npx cap add android
       - name: Apply DIV EDIT security hardening
         run: bash security/android/harden.sh
-      - name: Set Android target SDK 28
-        run: sed -i "s/targetSdkVersion = .*/targetSdkVersion = 28/" android/variables.gradle || true
+      - name: Configure Android SDK 36
+        run: |
+          sed -i "s/targetSdkVersion = .*/targetSdkVersion = 36/" android/variables.gradle || true
+          sed -i "s/compileSdkVersion = .*/compileSdkVersion = 36/" android/variables.gradle || true
+          grep -E "targetSdkVersion|compileSdkVersion" android/variables.gradle || true
       - name: Sync Capacitor
         run: npx cap sync android
       - name: Verify security source is present
         run: test -f android/app/src/main/cpp/CMakeLists.txt && test -f android/app/src/main/java/ng/divstudio/divcut/security/SecurityGuard.java && test -f android/app/proguard-rules-security.pro
-      - name: Build installable APK
+      - name: Configure release signing
+        env:
+          DIV_EDIT_KEYSTORE_BASE64: ${{ secrets.DIV_EDIT_KEYSTORE_BASE64 }}
+          DIV_EDIT_KEYSTORE_PASSWORD: ${{ secrets.DIV_EDIT_KEYSTORE_PASSWORD }}
+          DIV_EDIT_KEY_ALIAS: ${{ secrets.DIV_EDIT_KEY_ALIAS }}
+          DIV_EDIT_KEY_PASSWORD: ${{ secrets.DIV_EDIT_KEY_PASSWORD }}
+        run: |
+          test -n "$DIV_EDIT_KEYSTORE_BASE64" || (echo "Missing DIV_EDIT_KEYSTORE_BASE64 GitHub secret" && exit 1)
+          test -n "$DIV_EDIT_KEYSTORE_PASSWORD" || (echo "Missing DIV_EDIT_KEYSTORE_PASSWORD GitHub secret" && exit 1)
+          test -n "$DIV_EDIT_KEY_ALIAS" || (echo "Missing DIV_EDIT_KEY_ALIAS GitHub secret" && exit 1)
+          test -n "$DIV_EDIT_KEY_PASSWORD" || (echo "Missing DIV_EDIT_KEY_PASSWORD GitHub secret" && exit 1)
+          echo "$DIV_EDIT_KEYSTORE_BASE64" | base64 --decode > android/div-edit-upload.jks
+          cat >> android/gradle.properties <<EOF
+          DIV_EDIT_KEYSTORE_FILE=../div-edit-upload.jks
+          DIV_EDIT_KEYSTORE_PASSWORD=$DIV_EDIT_KEYSTORE_PASSWORD
+          DIV_EDIT_KEY_ALIAS=$DIV_EDIT_KEY_ALIAS
+          DIV_EDIT_KEY_PASSWORD=$DIV_EDIT_KEY_PASSWORD
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("android/app/build.gradle")
+          s=p.read_text()
+          if "DIV_EDIT_KEYSTORE_FILE" not in s:
+              s=s.replace("android {", '''android {
+              signingConfigs {
+                  release {
+                      storeFile file(project.findProperty("DIV_EDIT_KEYSTORE_FILE"))
+                      storePassword project.findProperty("DIV_EDIT_KEYSTORE_PASSWORD")
+                      keyAlias project.findProperty("DIV_EDIT_KEY_ALIAS")
+                      keyPassword project.findProperty("DIV_EDIT_KEY_PASSWORD")
+                  }
+              }''', 1)
+              s=s.replace("release {\n            minifyEnabled true", "release {\n            signingConfig signingConfigs.release\n            minifyEnabled true", 1)
+          p.write_text(s)
+          PY
+      - name: Build release AAB and APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
-      - name: Upload APK
+        run: ./gradlew bundleRelease assembleRelease --no-daemon --stacktrace
+      - name: Verify release artifacts
+        run: |
+          test -s android/app/build/outputs/bundle/release/app-release.aab
+          test -s android/app/build/outputs/apk/release/app-release.apk
+          unzip -t android/app/build/outputs/apk/release/app-release.apk >/dev/null
+      - name: Upload Play Store artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: DIV-EDIT-100-FEATURE-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: DIV-EDIT-Play-Store-Release-v1.0
+          path: |
+            android/app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
