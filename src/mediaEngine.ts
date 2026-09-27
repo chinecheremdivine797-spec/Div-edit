@@ -48,22 +48,24 @@ export async function renderProject(opts:{
   const ac=new AudioContext();
   const destination=ac.createMediaStreamDestination();
   const audioNodes:any[]=[];
+  const gainNodes=new Map<string,GainNode>();
   for(const l of opts.layers.filter(x=>x.kind==="video"||x.kind==="audio")) {
     const el=media.get(l.id); if(!el || !(el instanceof HTMLMediaElement)) continue;
-    const node=ac.createMediaElementSource(el); node.connect(destination); audioNodes.push(node);
+    const node=ac.createMediaElementSource(el); const gain=ac.createGain(); node.connect(gain).connect(destination); gainNodes.set(l.id,gain); audioNodes.push(node);
   }
   const stream=video.captureStream(opts.fps);
   destination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
   const rec=new MediaRecorder(stream,{mimeType:"video/webm;codecs=vp9,opus",videoBitsPerSecond:(opts.bitrate||12)*1000000});
   const chunks:Blob[]=[];
   rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
-  for(const l of media.values()) if(l instanceof HTMLMediaElement){l.currentTime=0;l.playbackRate=1;l.muted=l instanceof HTMLVideoElement;}
+  for(const l of media.values()) if(l instanceof HTMLMediaElement){l.currentTime=0;l.playbackRate=1;l.muted=false;}
   const start=performance.now();
   rec.start(250);
   for(let frame=0;frame<Math.ceil(opts.duration*opts.fps);frame++){
     const t=frame/opts.fps; ctx.fillStyle="#080808";ctx.fillRect(0,0,opts.width,opts.height);
     for(const l of opts.layers.filter(x=>x.visible!==false && t>=x.start && t<=x.start+x.duration)){
       const m=media.get(l.id)||null;
+      const gain=gainNodes.get(l.id); if(gain){const local=t-l.start; const fi=Math.min(1,Math.max(0,local/.35)); const fo=Math.min(1,Math.max(0,(l.duration-local)/.35)); gain.gain.value=Math.max(0,Math.min(1,fi,fo));}
       if(m instanceof HTMLMediaElement){const local=Math.max(0,(t-l.start)*(l.speed||1)); if(isFinite(local) && Math.abs(m.currentTime-local)>0.08) m.currentTime=Math.min(local,Math.max(0,(m.duration||local)-0.02));}
       opts.drawLayer(ctx,l,t,m);
     }
