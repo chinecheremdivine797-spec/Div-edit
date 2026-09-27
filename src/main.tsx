@@ -5,7 +5,7 @@ import{Play,Pause,Square,Upload,Undo2,Redo2,Scissors,Trash2,Sparkles,Layers,Down
 import"./styles.css";
 
 type Kind="video"|"image"|"audio"|"text"|"vfx"|"shape";
-type Layer={id:string;name:string;kind:Kind;src?:string;start:number;duration:number;visible:boolean;locked:boolean;x:number;y:number;scale:number;rotation:number;opacity:number;blend:string;speed:number;effect?:string;color?:string;keyframes:Record<string,{time:number;value:number}[]>;mask?:{type:"none"|"circle"|"rectangle"|"line"|"split"|"custom";feather:number};crop?:{x:number;y:number;width:number;height:number}};
+type Layer={id:string;name:string;kind:Kind;src?:string;start:number;duration:number;visible:boolean;locked:boolean;x:number;y:number;scale:number;rotation:number;opacity:number;blend:string;speed:number;effect?:string;color?:string;keyframes:Record<string,{time:number;value:number}[]>;mask?:{type:"none"|"circle"|"rectangle"|"line"|"split"|"custom";feather:number};crop?:{x:number;y:number;width:number;height:number};transition?:{type:"none"|"fade"|"dissolve"|"wipe"|"zoom";duration:number};colorAdjust?:{brightness:number;contrast:number;saturation:number;blur:number}};
 type Project={name:string;width:number;height:number;fps:number;duration:number;layers:Layer[];settings:Record<string,any>};
 
 const uid=()=>crypto.randomUUID();
@@ -35,7 +35,7 @@ function App(){
  const ratio=()=>p.width/p.height;
  function draw(){const c=canvas.current;if(!c)return;const g=c.getContext("2d");if(!g)return;c.width=540;c.height=Math.round(540/ratio());g.clearRect(0,0,c.width,c.height);g.fillStyle="#080808";g.fillRect(0,0,c.width,c.height);const s=Math.min(c.width/p.width,c.height/p.height);g.save();g.translate((c.width-p.width*s)/2,(c.height-p.height*s)/2);g.scale(s,s);
  p.layers.filter(l=>l.visible&&t>=l.start&&t<=l.start+l.duration).forEach(l=>{g.save();g.globalAlpha=l.opacity;g.globalCompositeOperation=l.blend==="Add"?"lighter":l.blend==="Screen"?"screen":l.blend==="Multiply"?"multiply":"source-over";g.translate(l.x,l.y);g.rotate(l.rotation*Math.PI/180);g.scale(l.scale,l.scale);
- if(l.kind==="text"){g.fillStyle=l.color||"#fff";g.font="900 86px Arial";g.textAlign="center";g.shadowBlur=16;g.shadowColor=l.color||"#fff";g.fillText(l.name,0,0)}
+ if(l.kind!=="audio" && adj && (adj.brightness||adj.contrast!==1||adj.saturation!==1||adj.blur)){g.filter=`brightness(${100+adj.brightness}%) contrast(${adj.contrast*100}%) saturate(${adj.saturation*100}%) blur(${adj.blur}px)`}      if(l.kind==="text"){g.fillStyle=l.color||"#fff";g.font="900 86px Arial";g.textAlign="center";g.shadowBlur=16;g.shadowColor=l.color||"#fff";g.fillText(l.name,0,0)}
  else if(l.kind==="vfx")paintVfx(g,l.effect||"Fire",t,l.color);
  else {const v=vids.current[l.id];if(v&&v.readyState>=2){g.drawImage(v,-p.width/2,-p.height/2,p.width,p.height)}else{g.fillStyle="#202020";g.fillRect(-p.width/2,-p.height/2,p.width,p.height);g.fillStyle="#aaa";g.font="bold 42px Arial";g.textAlign="center";g.fillText(l.name,0,0)}}g.restore()});g.restore();
  if(p.settings.grid){g.strokeStyle="rgba(255,255,255,.18)";g.lineWidth=1;for(let i=1;i<3;i++){g.beginPath();g.moveTo(c.width*i/3,0);g.lineTo(c.width*i/3,c.height);g.stroke();g.beginPath();g.moveTo(0,c.height*i/3);g.lineTo(c.width,c.height*i/3);g.stroke()}}
@@ -56,16 +56,21 @@ function App(){
     layers:p.layers,duration:p.duration,fps:p.fps,width:w,height:h,bitrate:p.settings.bitrate,
     drawLayer:(g,l,time,m)=>{
       const scale=Math.min(w/p.width,h/p.height);
+      const local=Math.max(0,time-l.start), progress=Math.min(1,Math.max(0,local/Math.max(.001,l.duration)));
+      const interp=(prop:string,base:number)=>{const k=(l.keyframes&&l.keyframes[prop])||[]; if(!k.length)return base; const a=[...k].sort((x,y)=>x.time-y.time); if(time<=a[0].time)return a[0].value; if(time>=a[a.length-1].time)return a[a.length-1].value; for(let i=0;i<a.length-1;i++){if(time>=a[i].time&&time<=a[i+1].time){const q=(time-a[i].time)/Math.max(.0001,a[i+1].time-a[i].time);return a[i].value+(a[i+1].value-a[i].value)*q}} return base};
+      const kx=interp("x",l.x), ky=interp("y",l.y), ks=interp("scale",l.scale), kr=interp("rotation",l.rotation), ko=interp("opacity",l.opacity);
+      const fade=Math.min(1,local/.4,(l.duration-local)/.4);
+      const adj=l.colorAdjust||{brightness:0,contrast:1,saturation:1,blur:0};
       g.save(); g.translate((w-p.width*scale)/2,(h-p.height*scale)/2); g.scale(scale,scale);
-      g.globalAlpha=l.opacity??1;
+      g.globalAlpha=Math.max(0,Math.min(1,ko*fade));
       g.globalCompositeOperation=l.blend==="Add"?"lighter":l.blend==="Screen"?"screen":l.blend==="Multiply"?"multiply":l.blend==="Darken"?"darken":"source-over";
-      g.translate(l.x,l.y); g.rotate((l.rotation||0)*Math.PI/180); g.scale(l.scale||1,l.scale||1);
+      g.translate(kx,ky); g.rotate(kr*Math.PI/180); g.scale(ks,ks);
       if(l.kind==="text"){g.fillStyle=l.color||"#fff";g.font="900 86px Arial";g.textAlign="center";g.shadowBlur=16;g.shadowColor=l.color||"#fff";g.fillText(l.name,0,0)}
       else if(l.kind==="vfx")paintVfx(g,l.effect||"Fire",time,l.color);
       else if(m instanceof HTMLVideoElement && m.readyState>=2) g.drawImage(m,-p.width/2,-p.height/2,p.width,p.height);
       else if(m instanceof HTMLImageElement) g.drawImage(m,-p.width/2,-p.height/2,p.width,p.height);
       else if(l.kind==="shape"){g.fillStyle=l.color||"#fff";g.fillRect(-p.width/4,-p.height/4,p.width/2,p.height/2)}
-      if(l.mask?.type!=="none"){g.restore();g.save();g.globalCompositeOperation="destination-in";g.beginPath();if(l.mask.type==="circle")g.arc(w/2,h/2,Math.min(w,h)*.35,0,Math.PI*2);else g.rect(w*.1,h*.1,w*.8,h*.8);g.fill();g.restore();return}
+      if(l.mask?.type!=="none"){g.restore();g.save();g.globalCompositeOperation="destination-in";g.filter=l.mask.feather?`blur(${Math.max(0,l.mask.feather)}px)`:"none";g.beginPath();if(l.mask.type==="circle")g.arc(w/2,h/2,Math.min(w,h)*.35,0,Math.PI*2);else if(l.mask.type==="split")g.rect(0,0,w/2,h);else g.rect(w*.1,h*.1,w*.8,h*.8);g.fill();g.restore();return}
       g.restore();
     },
     onProgress:v=>setNotice("Rendering "+Math.round(v*100)+"%")
