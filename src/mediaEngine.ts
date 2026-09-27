@@ -28,57 +28,59 @@ function atempoChain(speed:number) {
 
 export async function renderProject(opts:{
   layers:any[]; duration:number; fps:number; width:number; height:number; bitrate?:number;
-  drawLayer:(ctx:CanvasRenderingContext2D,layer:any,time:number,media:HTMLMediaElement|null)=>void;
   onProgress?:(value:number)=>void;
 }) {
-  const video = document.createElement("canvas");
-  video.width=opts.width; video.height=opts.height;
-  const ctx=video.getContext("2d")!;
-  const media = new Map<string,HTMLMediaElement>();
-  for (const l of opts.layers) {
-    if ((l.kind==="video"||l.kind==="audio") && l.src) {
-      const el=document.createElement(l.kind==="audio"?"audio":"video");
-      el.src=l.src; el.preload="auto"; el.crossOrigin="anonymous"; el.muted=l.kind==="video";
-      await new Promise<void>(resolve=>{el.onloadedmetadata=()=>resolve();el.onerror=()=>resolve()});
-      media.set(l.id,el);
-    } else if (l.kind==="image" && l.src) {
-      const el=document.createElement("img"); el.src=l.src; await new Promise<void>(resolve=>{el.onload=()=>resolve();el.onerror=()=>resolve()}); media.set(l.id,el);
-    }
-  }
-  const ac=new AudioContext();
-  const destination=ac.createMediaStreamDestination();
-  const audioNodes:any[]=[];
-  const gainNodes=new Map<string,GainNode>();
-  for(const l of opts.layers.filter(x=>x.kind==="video"||x.kind==="audio")) {
-    const el=media.get(l.id); if(!el || !(el instanceof HTMLMediaElement)) continue;
-    const node=ac.createMediaElementSource(el); const gain=ac.createGain(); node.connect(gain).connect(destination); gainNodes.set(l.id,gain); audioNodes.push(node);
-  }
-  const stream=video.captureStream(opts.fps);
-  destination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
-  const rec=new MediaRecorder(stream,{mimeType:"video/webm;codecs=vp9,opus",videoBitsPerSecond:(opts.bitrate||12)*1000000});
-  const chunks:Blob[]=[];
-  rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
-  for(const l of media.values()) if(l instanceof HTMLMediaElement){l.currentTime=0;l.playbackRate=1;l.muted=false;}
-  const start=performance.now();
-  rec.start(250);
-  for(let frame=0;frame<Math.ceil(opts.duration*opts.fps);frame++){
-    const t=frame/opts.fps; ctx.fillStyle="#080808";ctx.fillRect(0,0,opts.width,opts.height);
-    for(const l of opts.layers.filter(x=>x.visible!==false && t>=x.start && t<=x.start+x.duration)){
-      const m=media.get(l.id)||null;
-      const gain=gainNodes.get(l.id); if(gain){const local=t-l.start; const fi=Math.min(1,Math.max(0,local/.35)); const fo=Math.min(1,Math.max(0,(l.duration-local)/.35)); gain.gain.value=Math.max(0,Math.min(1,fi,fo));}
-      if(m instanceof HTMLMediaElement){const local=Math.max(0,(t-l.start)*(l.speed||1)); if(isFinite(local) && Math.abs(m.currentTime-local)>0.08) m.currentTime=Math.min(local,Math.max(0,(m.duration||local)-0.02));}
-      opts.drawLayer(ctx,l,t,m);
-    }
-    opts.onProgress?.(frame/Math.max(1,Math.ceil(opts.duration*opts.fps)));
-    await new Promise(r=>requestAnimationFrame(r));
-  }
-  await new Promise<void>(resolve=>{rec.onstop=()=>resolve();rec.stop()});
-  audioNodes.forEach(n=>{try{n.disconnect()}catch{}}); await ac.close();
-  const webm=new Blob(chunks,{type:"video/webm"});
   const f=await loadMediaEngine(opts.onProgress);
-  await f.writeFile("project.webm",await fetchFile(URL.createObjectURL(webm)));
-  await f.exec(["-i","project.webm","-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p","-r",String(opts.fps),"-b:v",String(opts.bitrate||12)+"M","-c:a","aac","-b:a","192k","-movflags","+faststart","project.mp4"]);
-  const out=await f.readFile("project.mp4"); await f.deleteFile("project.webm"); await f.deleteFile("project.mp4");
+  const active=opts.layers.filter(l=>l.visible!==false && ["video","image","audio","text","vfx","shape"].includes(l.kind));
+  const files:string[]=[]; const inputArgs:string[]=[];
+  const num=(v:any,d:number)=>Number.isFinite(Number(v))?Number(v):d;
+  const esc=(v:string)=>v.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+  const writeSvg=async(name:string,svg:string)=>{const blob=new Blob([svg],{type:"image/svg+xml"});await f.writeFile(name,await fetchFile(URL.createObjectURL(blob)));};
+  for(const l of active){
+    if(l.src){
+      const ext=l.kind==="image"?"png":(String(l.src).toLowerCase().includes(".mov")?"mov":"mp4");
+      const name="in_"+l.id.replace(/[^a-zA-Z0-9_-]/g,"_")+"."+ext;
+      await f.writeFile(name,await fetchFile(l.src)); files.push(name); inputArgs.push("-i",name); l.__input=inputArgs.length/2-1;
+    } else if(l.kind==="text"||l.kind==="shape"){
+      const name="overlay_"+l.id.replace(/[^a-zA-Z0-9_-]/g,"_")+".svg";
+      const text=l.kind==="text"?esc(String(l.name||"DIV EDIT TEXT")):""; const fill=esc(l.color||"#ffffff");
+      const svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+opts.width+'" height="'+opts.height+'"><rect width="100%" height="100%" fill="'+fill+'" opacity="'+(l.kind==="shape"?num(l.opacity,1):0)+'"/>'+(text?'<text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="'+Math.max(24,Math.round(opts.height*.07))+'" font-weight="900" fill="'+fill+'">'+text+'</text>':"")+'</svg>';
+      await writeSvg(name,svg); files.push(name); inputArgs.push("-loop","1","-i",name); l.__input=inputArgs.length/2-1;
+    }
+  }
+  if(!inputArgs.length) throw new Error("No renderable layers");
+  const filter:string[]=[]; const videos:string[]=[]; const audios:string[]=[];
+  for(const l of active){
+    const idx=l.__input; if(idx===undefined) continue;
+    const start=Math.max(0,num(l.start,0)), dur=Math.max(.01,num(l.duration,1)), end=Math.min(opts.duration,start+dur);
+    if(l.kind==="audio"){
+      const af=["aresample=async=1",atempoChain(Math.max(.1,Math.min(100,num(l.speed,1)))),"adelay="+Math.round(start*1000)+":all=1"].join(",");
+      filter.push("["+idx+":a]"+af+"[a"+idx+"]"); audios.push("[a"+idx+"]"); continue;
+    }
+    const scale=num(l.scale,1), opacity=Math.max(0,Math.min(1,num(l.opacity,1)));
+    const adj=l.colorAdjust||{}; const brightness=num(adj.brightness,0)/100, contrast=num(adj.contrast,1), saturation=num(adj.saturation,1), blur=num(adj.blur,0);
+    const fs:string[]=[];
+    if(l.kind==="video") fs.push("setpts=PTS/"+Math.max(.1,Math.min(100,num(l.speed,1))));
+    fs.push("fps="+opts.fps,"scale="+Math.max(2,Math.round(opts.width*scale))+":-2:force_original_aspect_ratio=decrease","pad="+opts.width+":"+opts.height+":(ow-iw)/2:(oh-ih)/2:color=black");
+    if(l.kind!=="video") fs.push("tpad=stop_mode=clone:stop_duration="+Math.max(0,end-start));
+    if(l.effect==="Reverse"&&l.kind==="video") fs.push("reverse");
+    if(l.effect==="Freeze"&&l.kind==="video") fs.push("tpad=stop_mode=clone:stop_duration=2");
+    if(brightness||contrast!==1||saturation!==1) fs.push("eq=brightness="+brightness+":contrast="+contrast+":saturation="+saturation);
+    if(blur>0) fs.push("boxblur="+Math.min(20,blur));
+    if(opacity<1) fs.push("format=rgba,colorchannelmixer=aa="+opacity);
+    if(l.mask?.type==="circle") fs.push("geq=lum='lum(X,Y)':a='if(gt((X-W/2)^2+(Y-H/2)^2,(min(W,H)*.42)^2),0,alpha(X,Y))'");
+    fs.push("setpts=PTS-STARTPTS+"+start+"/TB");
+    const label="v"+idx; filter.push("["+idx+":v]"+fs.join(",")+"["+label+"]"); videos.push("["+label+"]");
+  }
+  if(!videos.length){filter.push("color=c=black:s="+opts.width+"x"+opts.height+":r="+opts.fps+":d="+opts.duration+"[base]");videos.push("[base]");}
+  let cur=videos[0];
+  for(let i=1;i<videos.length;i++){const out="comp"+i;filter.push(cur+videos[i]+"overlay=eof_action=pass:shortest=0["+out+"]");cur="["+out+"]";}
+  filter.push(cur+"format=yuv420p[vout]");
+  if(audios.length) filter.push(audios.join("")+"amix=inputs="+audios.length+":duration=longest:dropout_transition=2,atrim=duration="+opts.duration+"[aout]");
+  else filter.push("anullsrc=r=48000:cl=stereo,atrim=duration="+opts.duration+"[aout]");
+  const args=[...inputArgs,"-filter_complex",filter.join(";"),"-map","[vout]","-map","[aout]","-t",String(opts.duration),"-r",String(opts.fps),"-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p","-b:v",String(Math.max(2,opts.bitrate||12))+"M","-c:a","aac","-b:a","192k","-movflags","+faststart","project.mp4"];
+  await f.exec(args); const out=await f.readFile("project.mp4");
+  for(const name of files){try{await f.deleteFile(name)}catch{}} try{await f.deleteFile("project.mp4")}catch{}
   return new Blob([out],{type:"video/mp4"});
 }
 
