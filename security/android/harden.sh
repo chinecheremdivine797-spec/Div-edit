@@ -9,7 +9,6 @@ cp security/android/native/divsecurity.cpp "$APP/cpp/divsecurity.cpp"
 cp security/android/native/CMakeLists.txt "$APP/cpp/CMakeLists.txt"
 cp security/android/proguard-rules.pro android/app/proguard-rules-security.pro
 
-# Harden cleartext transport. Production pinning is injected only when real pins are supplied.
 cat > "$APP/res/xml/network_security_config.xml" <<'XML'
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
@@ -28,9 +27,25 @@ s=p.read_text()
 if "com.google.android.play:integrity:" not in s:
     s=s.replace("dependencies {", 'dependencies {\n    implementation "com.google.android.play:integrity:1.6.0"', 1)
 if "externalNativeBuild" not in s:
-    marker="android {"
-    insert='''android {\n    externalNativeBuild {\n        cmake { path file("src/main/cpp/CMakeLists.txt") }\n    }\n    buildTypes {\n        debug {\n            minifyEnabled false\n            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro", "proguard-rules-security.pro"\n        }\n        release {\n            minifyEnabled true\n            shrinkResources true\n            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro", "proguard-rules-security.pro"\n        }\n    }'''
-    s=s.replace(marker,insert,1)
+    s=s.replace("android {", '''android {
+    externalNativeBuild {
+        cmake { path file("src/main/cpp/CMakeLists.txt") }
+    }
+    buildTypes {
+        debug {
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro", "proguard-rules-security.pro"
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro", "proguard-rules-security.pro"
+        }
+    }''', 1)
+# Explicitly keep debug resource shrinking disabled.
+if "android.buildTypes.debug.shrinkResources = false" not in s:
+    s += '''\n\n// DIV EDIT security build: resource shrinking requires code shrinking.\nandroid.buildTypes.debug.shrinkResources = false\nandroid.buildTypes.debug.minifyEnabled = false\n'''
 p.write_text(s)
 PY
 
@@ -45,7 +60,6 @@ if "SecurityGuard" not in s:
     p.write_text(s)
 PY
 
-# Generate an integrity manifest for bundled web assets.
 mkdir -p android/app/src/main/assets
 if [ -d dist ]; then
   (cd dist && find . -type f -print0 | sort -z | xargs -0 sha256sum) > android/app/src/main/assets/div-assets.sha256
