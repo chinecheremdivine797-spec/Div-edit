@@ -43,8 +43,9 @@ if "externalNativeBuild" not in s:
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro", "proguard-rules-security.pro"
         }
     }''', 1)
-# Force a safe generated configuration for the APK build.
-# Resource shrinking is disabled because the workflow builds the debug APK.
+# Configure release R8 without resource shrinking; debug remains unminified.
+# This avoids AGP resource-shrinker conflicts while keeping release code shrinking.
+s = s.replace(/\\n\\/\\* DIV EDIT security build overrides \\*\\/[\\s\\S]*$/, "")
 s += '''
 
 /* DIV EDIT security build overrides */
@@ -57,6 +58,7 @@ android {
         release {
             minifyEnabled true
             shrinkResources false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro", "proguard-rules-security.pro"
         }
     }
 }
