@@ -22,12 +22,22 @@ XML
 
 python3 - <<'PY'
 from pathlib import Path
-p=Path("android/app/build.gradle")
-s=p.read_text()
+import re
+
+p = Path("android/app/build.gradle")
+s = p.read_text()
+
 if "com.google.android.play:integrity:" not in s:
-    s=s.replace("dependencies {", 'dependencies {\n    implementation "com.google.android.play:integrity:1.6.0"', 1)
+    s = s.replace(
+        "dependencies {",
+        'dependencies {\n    implementation "com.google.android.play:integrity:1.6.0"',
+        1,
+    )
+
 if "externalNativeBuild" not in s:
-    s=s.replace("android {", '''android {
+    s = s.replace(
+        "android {",
+        '''android {
     externalNativeBuild {
         cmake { path file("src/main/cpp/CMakeLists.txt") }
     }
@@ -39,16 +49,17 @@ if "externalNativeBuild" not in s:
         }
         release {
             minifyEnabled true
-            shrinkResources true
+            shrinkResources false
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro", "proguard-rules-security.pro"
         }
-    }''', 1)
-# Configure release R8 without resource shrinking; debug remains unminified.
-# This avoids AGP resource-shrinker conflicts while keeping release code shrinking.
-s = s.replace(/\\n\\/\\* DIV EDIT security build overrides \\*\\/[\\s\\S]*$/, "")
-s += '''
+    }''',
+        1,
+    )
 
-/* DIV EDIT security build overrides */
+# Remove any previous generated DIV EDIT override block, then append one clean block.
+s = re.sub(r'\n/\* DIV EDIT security build overrides \*/\nandroid \{.*?\n\}\s*$', '', s, flags=re.S)
+s += '''
+\n/* DIV EDIT security build overrides */
 android {
     buildTypes {
         debug {
@@ -65,7 +76,6 @@ android {
 '''
 p.write_text(s)
 PY
-
 python3 - <<'PY'
 from pathlib import Path
 cands=list(Path("android/app/src/main/java").rglob("MainActivity.java"))+list(Path("android/app/src/main/java").rglob("MainActivity.kt"))
