@@ -35,7 +35,7 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
       - name: Verify security source is present
-        run: test -f android/app/src/main/cpp/CMakeLists.txt && test -f android/app/src/main/java/ng/divstudio/divcut/security/SecurityGuard.kt
+        run: test -f android/app/src/main/cpp/CMakeLists.txt && test -f android/app/src/main/java/ng/divstudio/divcut/security/SecurityGuard.java && test -f android/app/proguard-rules-security.pro
       - name: Build installable APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
