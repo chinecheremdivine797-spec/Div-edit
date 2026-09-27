@@ -1,4 +1,4 @@
-name: Build DIVCUT APK
+name: Build DIV EDIT 100-Feature APK
 
 on:
   workflow_dispatch:
@@ -28,6 +28,8 @@ jobs:
         run: npm run build
       - name: Add Android platform
         run: npx cap add android
+      - name: Set Android target SDK 28
+        run: sed -i "s/targetSdkVersion = .*/targetSdkVersion = 28/" android/variables.gradle || true
       - name: Sync Capacitor
         run: npx cap sync android
       - name: Build installable APK
@@ -36,6 +38,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: DIVCUT-APK
+          name: DIV-EDIT-100-FEATURE-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
