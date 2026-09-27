@@ -41,10 +41,10 @@ export async function renderProject(opts:{
       const ext=l.kind==="image"?"png":(String(l.src).toLowerCase().includes(".mov")?"mov":"mp4");
       const name="in_"+l.id.replace(/[^a-zA-Z0-9_-]/g,"_")+"."+ext;
       await f.writeFile(name,await fetchFile(l.src)); files.push(name); inputArgs.push("-i",name); l.__input=inputArgs.length/2-1;
-    } else if(l.kind==="text"||l.kind==="shape"){
+    } else if(l.kind==="text"||l.kind==="shape"||l.kind==="vfx"){
       const name="overlay_"+l.id.replace(/[^a-zA-Z0-9_-]/g,"_")+".svg";
-      const text=l.kind==="text"?esc(String(l.name||"DIV EDIT TEXT")):""; const fill=esc(l.color||"#ffffff");
-      const svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+opts.width+'" height="'+opts.height+'"><rect width="100%" height="100%" fill="'+fill+'" opacity="'+(l.kind==="shape"?num(l.opacity,1):0)+'"/>'+(text?'<text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="'+Math.max(24,Math.round(opts.height*.07))+'" font-weight="900" fill="'+fill+'">'+text+'</text>':"")+'</svg>';
+      const text=l.kind==="text"?esc(String(l.name||"DIV EDIT TEXT")):""; const fill=esc(l.color||"#ffffff"); const vfx=l.kind==="vfx";
+      const svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+opts.width+'" height="'+opts.height+'"><rect width="100%" height="100%" fill="'+fill+'" opacity="'+(l.kind==="shape"?num(l.opacity,1):0)+'"/>'+(text?'<text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="'+Math.max(24,Math.round(opts.height*.07))+'" font-weight="900" fill="'+fill+'">'+text+'</text>':"")+(vfx?'<circle cx="50%" cy="50%" r="'+Math.min(opts.width,opts.height)*.28+'" fill="none" stroke="'+fill+'" stroke-width="28" opacity=".8"/><circle cx="50%" cy="50%" r="'+Math.min(opts.width,opts.height)*.12+'" fill="'+fill+'" opacity=".28"/>':"")+'</svg>';
       await writeSvg(name,svg); files.push(name); inputArgs.push("-loop","1","-i",name); l.__input=inputArgs.length/2-1;
     }
   }
