@@ -28,10 +28,14 @@ jobs:
         run: npm run build
       - name: Add Android platform
         run: npx cap add android
+      - name: Apply DIV EDIT security hardening
+        run: bash security/android/harden.sh
       - name: Set Android target SDK 28
         run: sed -i "s/targetSdkVersion = .*/targetSdkVersion = 28/" android/variables.gradle || true
       - name: Sync Capacitor
         run: npx cap sync android
+      - name: Verify security source is present
+        run: test -f android/app/src/main/cpp/CMakeLists.txt && test -f android/app/src/main/java/ng/divstudio/divcut/security/SecurityGuard.kt
       - name: Build installable APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
