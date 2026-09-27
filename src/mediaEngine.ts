@@ -72,7 +72,7 @@ export async function renderProject(opts:{layers:any[];duration:number;fps:numbe
     const fs:string[]=[];if(l.kind==='video'){fs.push('setpts=PTS/'+Math.max(.1,Math.min(100,Number(l.speed)||1)));if(l.effect==='Reverse')fs.push('reverse');if(l.effect==='Freeze')fs.push('tpad=stop_mode=clone:stop_duration=2');}else fs.push('tpad=stop_mode=clone:stop_duration='+local);
     const cr=l.crop||{x:0,y:0,width:1,height:1};if(Number(cr.width)<.999||Number(cr.height)<.999||Number(cr.x)!==0||Number(cr.y)!==0)fs.push("crop=w='iw*"+Math.max(.01,Math.min(1,Number(cr.width)||1))+"':h='ih*"+Math.max(.01,Math.min(1,Number(cr.height)||1))+"':x='iw*"+Math.max(0,Math.min(1,Number(cr.x)||0))+"':y='ih*"+Math.max(0,Math.min(1,Number(cr.y)||0))+"'");
     fs.push("scale=w='max(2,iw*"+ks+")':h='-1':force_original_aspect_ratio=decrease","scale=w='min(iw,"+opts.width+")':h='min(ih,"+opts.height+" )'");
-    fs.push("format=rgba,colorchannelmixer=aa='"+ko+"*"+alphaExpr(l,local)+"'");fs.push(...richColor(l.colorAdjust));const mf=maskFilter(l.mask);if(mf)fs.push(mf);fs.push('setpts=PTS-STARTPTS');
+    fs.push("format=rgba,colorchannelmixer=aa='"+ko+"*"+alphaExpr(l,local)+"'");fs.push(...richColor(l.colorAdjust));fs.push("rotate='"+kr+"*PI/180':ow='rotw(iw)':oh='roth(ih)':c=none:bilinear=1");const mf=maskFilter(l.mask);if(mf)fs.push(mf);fs.push('setpts=PTS-STARTPTS');
     const label='v'+idx;fc.push('['+idx+':v]'+fs.join(',')+'['+label+']');const x='('+opts.width+'-overlay_w)/2+('+kx+'-'+opts.width+'/2)',y='('+opts.height+'-overlay_h)/2+('+ky+'-'+opts.height+'/2)';vids.push({label,x,y,rotation:kr} as any);
   }
   fc.push('color=c=black:s='+opts.width+'x'+opts.height+':r='+opts.fps+':d='+opts.duration+'[base]');let cur='[base]';let n=0;
