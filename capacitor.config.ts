@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'ng.divstudio.divcut',
-  appName: 'DIV EDIT',
+  appId: 'com.aistudio.diveditai.kflmpo',
+  appName: 'DIV EDIT AI',
   webDir: 'dist',
 };
 
