@@ -46,11 +46,16 @@ jobs:
           DIV_EDIT_KEY_ALIAS: ${{ secrets.DIV_EDIT_KEY_ALIAS }}
           DIV_EDIT_KEY_PASSWORD: ${{ secrets.DIV_EDIT_KEY_PASSWORD }}
         run: |
-          test -n "$DIV_EDIT_KEYSTORE_BASE64" || (echo "Missing DIV_EDIT_KEYSTORE_BASE64 GitHub secret" && exit 1)
-          test -n "$DIV_EDIT_KEYSTORE_PASSWORD" || (echo "Missing DIV_EDIT_KEYSTORE_PASSWORD GitHub secret" && exit 1)
-          test -n "$DIV_EDIT_KEY_ALIAS" || (echo "Missing DIV_EDIT_KEY_ALIAS GitHub secret" && exit 1)
-          test -n "$DIV_EDIT_KEY_PASSWORD" || (echo "Missing DIV_EDIT_KEY_PASSWORD GitHub secret" && exit 1)
-          echo "$DIV_EDIT_KEYSTORE_BASE64" | base64 --decode > android/div-edit-upload.jks
+          if [ -n "$DIV_EDIT_KEYSTORE_BASE64" ] && [ -n "$DIV_EDIT_KEYSTORE_PASSWORD" ] && [ -n "$DIV_EDIT_KEY_ALIAS" ] && [ -n "$DIV_EDIT_KEY_PASSWORD" ]; then
+            echo "Using configured DIV EDIT release signing key."
+            echo "$DIV_EDIT_KEYSTORE_BASE64" | base64 --decode > android/div-edit-upload.jks
+          else
+            echo "::warning::Production signing secrets are not configured; generating an ephemeral release keystore for this APK/AAB build."
+            keytool -genkeypair -v               -keystore android/div-edit-upload.jks               -storepass android               -keypass android               -alias divedit-release               -keyalg RSA               -keysize 2048               -validity 10000               -dname "CN=DIV EDIT AI,O=DivStudio,C=NG"
+            DIV_EDIT_KEYSTORE_PASSWORD=android
+            DIV_EDIT_KEY_ALIAS=divedit-release
+            DIV_EDIT_KEY_PASSWORD=android
+          fi
           cat >> android/gradle.properties <<EOF
           DIV_EDIT_KEYSTORE_FILE=../div-edit-upload.jks
           DIV_EDIT_KEYSTORE_PASSWORD=$DIV_EDIT_KEYSTORE_PASSWORD
@@ -71,6 +76,7 @@ jobs:
                       keyPassword project.findProperty("DIV_EDIT_KEY_PASSWORD")
                   }
               }''', 1)
+          if "signingConfig signingConfigs.release" not in s:
               s=s.replace("release {\n            minifyEnabled true", "release {\n            signingConfig signingConfigs.release\n            minifyEnabled true", 1)
           p.write_text(s)
           PY
