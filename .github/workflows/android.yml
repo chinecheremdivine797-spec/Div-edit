@@ -1,4 +1,5 @@
 name: DIV EDIT Play Store Release v1.0
+# Permanent signing verification release
 
 on:
   workflow_dispatch:
