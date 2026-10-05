@@ -28,3 +28,11 @@ button,input,select{font:inherit}button{cursor:pointer}
 @media(min-width:851px){body{max-width:520px;margin:auto;border-left:1px solid #222;border-right:1px solid #222}.app{max-width:520px;margin:auto}}
 @media(max-height:650px){.timeline{height:155px;flex-basis:155px}.bottomTools{height:88px;flex-basis:88px}.tool button{height:78px}.side{height:62px;flex-basis:62px}.side button{height:55px}.canvasWrap{height:62%}}
 @media(max-width:600px){.featureBar{height:42px}.topbar label{font-size:10px;padding:7px}}
+/* CapCut-inspired mobile editor chrome */
+.capcutRail{height:82px;flex-basis:82px;padding:5px 6px;background:#101011;border-top:1px solid #29292c;box-shadow:0 -8px 24px rgba(0,0,0,.24)}
+.capcutRail button{flex:0 0 62px;width:62px;height:70px;border-radius:9px;gap:5px;font-size:9px;color:#a7a7ad}
+.capcutRail button svg{width:20px;height:20px;stroke-width:1.8}
+.capcutRail button.active{background:#252527;color:#fff}
+.capcutRail button.active svg{color:var(--accent)}
+.capcutRail button:active{transform:scale(.96)}
+@media(max-width:600px){.capcutRail{height:78px;flex-basis:78px}.capcutRail button{height:66px;flex-basis:60px;width:60px}}
